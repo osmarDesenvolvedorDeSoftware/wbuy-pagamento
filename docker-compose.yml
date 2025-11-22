@@ -1,0 +1,36 @@
+version: "3.8"
+
+services:
+  wbuy-api:
+    container_name: wbuy-api
+    build: .
+    image: wbuy-api
+    restart: always
+    env_file:
+      - .env
+    environment:
+      PORT: 5000
+
+    ports:
+      - "5001:5000"
+
+    labels:
+      - "traefik.enable=true"
+
+      - "traefik.http.routers.wbuy-temp.rule=PathPrefix(`/wbuy`)"
+      - "traefik.http.routers.wbuy-temp.entrypoints=web"
+      - "traefik.http.services.wbuy-temp.loadbalancer.server.port=5000"
+      - "traefik.docker.network=web"
+
+    networks:
+      - web
+      - internal
+
+networks:
+  web:
+    external: true
+    name: web
+
+  internal:
+    external: true
+    name: sarat_internal
