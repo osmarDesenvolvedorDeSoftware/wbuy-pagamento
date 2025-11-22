@@ -1,0 +1,6 @@
+__pycache__/
+.venv/
+.env
+storage/webhooks/*
+!storage/webhooks/
+!storage/webhooks/.gitkeep
