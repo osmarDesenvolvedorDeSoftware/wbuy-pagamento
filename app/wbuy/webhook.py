@@ -43,6 +43,8 @@ def build_msg_1(
     lista_itens: str,
     payment_instruction: str,
 ) -> str:
+    itens_formatados = f"\n{lista_itens}" if lista_itens else ""
+
     return (
         f"Oi, {nome_cliente}! 🌺✨\n"
         "Aqui é a Carol da Sarat.\n"
@@ -51,7 +53,7 @@ def build_msg_1(
         f"Aqui estão os dados certinhos do seu pedido {numero_do_pedido}:\n\n"
         f"📦 Pedido: {numero_do_pedido}\n"
         f"🧾 Valor total: R$ {valor_total}\n"
-        f"🛍️ Itens: {lista_itens}\n\n"
+        f"🛍️ Itens:{itens_formatados}\n\n"
         f"{payment_instruction}"
     )
 
@@ -94,7 +96,9 @@ def send_whats_message(number: str, body: str) -> Dict[str, Any]:
 
 
 def _parse_lista_itens(produtos: List[Dict[str, Any]]) -> str:
-    return ", ".join(f"{produto['produto']} (qtd {produto['qtd']})" for produto in produtos)
+    return "\n".join(
+        f"- {produto['produto']} (qtd {produto['qtd']})" for produto in produtos
+    )
 
 
 def process_webhook(payload: Dict[str, Any]) -> None:
