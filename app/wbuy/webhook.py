@@ -5,6 +5,8 @@ from typing import Any, Dict, List
 
 import requests
 
+from . import storage
+
 WHATICKET_API_URL = os.getenv(
     "WHATICKET_API_BASE_URL", "https://api.osmardev.online/api/messages/send"
 )
@@ -128,11 +130,15 @@ def _parse_lista_itens(produtos: List[Dict[str, Any]]) -> str:
 def process_webhook(payload: Dict[str, Any]) -> None:
     nome_cliente = payload["data"]["cliente"]["nome"]
     telefone = payload["data"]["cliente"]["telefone1"]
-    numero_do_pedido = payload["data"]["id"]
+    numero_do_pedido = str(payload["data"]["id"])
     valor_total = payload["data"]["valor_total"]["total"]
     lista_itens = _parse_lista_itens(payload["data"].get("produtos", []))
     pagamento = payload["data"]["pagamento"]
     tipo_pagamento = pagamento["tipo_interno"]
+
+    if storage.is_order_processed(numero_do_pedido):
+        print(f"[webhook] Pedido {numero_do_pedido} já processado. Ignorando envio duplicado.")
+        return
 
     primeiro_nome = extract_first_name(nome_cliente)
 
@@ -203,6 +209,8 @@ def process_webhook(payload: Dict[str, Any]) -> None:
 
         print(f"[webhook] Enviando mensagem final (BOLETO) para {normalized_phone}")
         send_whats_message(normalized_phone, mensagem_final)
+
+    storage.mark_order_processed(numero_do_pedido)
 
     sys.stdout.flush()
 

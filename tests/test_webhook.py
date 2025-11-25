@@ -1,4 +1,6 @@
+import tempfile
 import unittest
+from pathlib import Path
 from unittest import mock
 
 from app import create_app
@@ -9,6 +11,16 @@ class TestWebhook(unittest.TestCase):
     def setUp(self):
         self.app = create_app()
         self.client = self.app.test_client()
+        self.temp_dir = tempfile.TemporaryDirectory()
+        self.processed_file = Path(self.temp_dir.name) / "processed_orders.txt"
+        self.processed_patcher = mock.patch.object(
+            webhook.storage, "PROCESSED_FILE", self.processed_file
+        )
+        self.processed_patcher.start()
+
+    def tearDown(self):
+        self.processed_patcher.stop()
+        self.temp_dir.cleanup()
 
     def test_handle_webhook_processes_payload_and_returns_ok(self):
         payload = {"data": {}}
@@ -142,6 +154,39 @@ class TestWebhook(unittest.TestCase):
         media_mock.assert_called_once_with(expected_phone, b"%PDF-1.4", "boleto.pdf")
         sleep_mock.assert_has_calls([mock.call(1), mock.call(1), mock.call(1)])
         get_mock.assert_called_once_with("https://example.com/boleto.pdf", stream=True, timeout=30)
+
+    def test_process_webhook_skips_duplicate_orders(self):
+        payload = {
+            "data": {
+                "id": "10490102",
+                "cliente": {"nome": "Cliente Repetido", "telefone1": "(16)99624-6673"},
+                "valor_total": {"total": "50.0"},
+                "produtos": [],
+                "pagamento": {
+                    "linha_digitavel": "0002010102122677PIXCODE",
+                    "tipo_interno": "pix",
+                },
+            }
+        }
+
+        events = []
+
+        def fake_send_message(number, body):
+            events.append(body)
+            return {"status": "sent", "number": number, "body": body}
+
+        with (
+            mock.patch(
+                "app.wbuy.webhook.send_whats_message", side_effect=fake_send_message
+            ),
+            mock.patch("app.wbuy.webhook.time.sleep"),
+        ):
+            webhook.process_webhook(payload)
+            webhook.process_webhook(payload)
+
+        self.assertEqual(len(events), 3)
+        self.assertTrue(self.processed_file.exists())
+        self.assertEqual(self.processed_file.read_text().splitlines(), ["10490102"])
 
     def test_send_whats_media_posts_file(self):
         file_bytes = b"pdf-bytes"
