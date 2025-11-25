@@ -13,7 +13,24 @@ WHATICKET_TOKEN = (
     or os.getenv("WHATICKET_TOKEN")
     or os.getenv("TOKEN_WHATS")
 )
-TEST_NUMBER = os.getenv("WHATSAPP_TEST_NUMBER")
+
+
+def _get_test_number() -> str:
+    """
+    Return the configured test phone number, if any.
+
+    The value is read from the first non-empty environment variable among:
+    - WHATSAPP_TEST_NUMBER (current)
+    - NUMBER_TEST (value present in the repo's .env)
+    - NUMBER_TESTE (legacy documentation)
+    """
+
+    for env_key in ("WHATSAPP_TEST_NUMBER", "NUMBER_TEST", "NUMBER_TESTE"):
+        value = os.getenv(env_key)
+        if value:
+            return value
+
+    return ""
 
 
 def normalize_phone(phone: str) -> str:
@@ -112,9 +129,8 @@ def process_webhook(payload: Dict[str, Any]) -> None:
 
     primeiro_nome = extract_first_name(nome_cliente)
 
-    normalized_phone = (
-        normalize_phone(TEST_NUMBER) if TEST_NUMBER else normalize_phone(telefone)
-    )
+    test_number = _get_test_number()
+    normalized_phone = normalize_phone(test_number or telefone)
 
     payment_instruction_pix = "Para concluir rapidinho, é só pagar usando o Pix Copia e Cola abaixo:"
     payment_instruction_boleto = (
