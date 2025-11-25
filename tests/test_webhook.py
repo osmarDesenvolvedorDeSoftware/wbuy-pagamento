@@ -54,12 +54,17 @@ class TestWebhook(unittest.TestCase):
             "Para concluir rapidinho, é só pagar usando o Pix Copia e Cola abaixo:",
         )
         expected_msg_2 = webhook.build_msg_2("0002010102122677PIXCODE")
+        expected_msg_final = webhook.build_closing_message()
 
         self.assertEqual(
             send_mock.call_args_list,
-            [mock.call(expected_phone, expected_msg_1), mock.call(expected_phone, expected_msg_2)],
+            [
+                mock.call(expected_phone, expected_msg_1),
+                mock.call(expected_phone, expected_msg_2),
+                mock.call(expected_phone, expected_msg_final),
+            ],
         )
-        sleep_mock.assert_called_once_with(1)
+        sleep_mock.assert_has_calls([mock.call(1), mock.call(1)])
 
     def test_process_webhook_handles_boleto_flow_and_order(self):
         payload = {
@@ -123,14 +128,19 @@ class TestWebhook(unittest.TestCase):
             "Para concluir rapidinho, é só pagar usando o código de barras abaixo:",
         )
         expected_msg_2 = webhook.build_msg_2("1234567890")
+        expected_msg_final = webhook.build_closing_message()
 
-        self.assertEqual(events, [expected_msg_1, expected_msg_2, "media"])
+        self.assertEqual(events, [expected_msg_1, expected_msg_2, "media", expected_msg_final])
         self.assertEqual(
             send_mock.call_args_list,
-            [mock.call(expected_phone, expected_msg_1), mock.call(expected_phone, expected_msg_2)],
+            [
+                mock.call(expected_phone, expected_msg_1),
+                mock.call(expected_phone, expected_msg_2),
+                mock.call(expected_phone, expected_msg_final),
+            ],
         )
         media_mock.assert_called_once_with(expected_phone, b"%PDF-1.4", "boleto.pdf")
-        sleep_mock.assert_has_calls([mock.call(1), mock.call(1)])
+        sleep_mock.assert_has_calls([mock.call(1), mock.call(1), mock.call(1)])
         get_mock.assert_called_once_with("https://example.com/boleto.pdf", stream=True, timeout=30)
 
     def test_send_whats_media_posts_file(self):
