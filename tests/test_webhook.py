@@ -47,7 +47,7 @@ class TestWebhook(unittest.TestCase):
         expected_phone = "5516996246673"
         lista_itens = "Banco Indiano Madeira Entalhada e Ferro com Encosto 50 cm (qtd 1)"
         expected_msg_1 = webhook.build_msg_1(
-            "Osmar TESTE",
+            "Osmar",
             "10490102",
             "249.9",
             lista_itens,
@@ -107,7 +107,7 @@ class TestWebhook(unittest.TestCase):
         lista_itens = "Produto Teste (qtd 2)"
         expected_phone = "5511988887777"
         expected_msg_1 = webhook.build_msg_1(
-            "Cliente Boleto",
+            "Cliente",
             "55555",
             "100.0",
             lista_itens,
