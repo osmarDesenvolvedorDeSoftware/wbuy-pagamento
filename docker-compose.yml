@@ -1,36 +1,36 @@
 version: "3.8"
 
 services:
-  wbuy-api:
-    container_name: wbuy-api
+  wbuy-pagamentos:
+    container_name: wbuy-pagamentos
     build: .
-    image: wbuy-api
+    image: wbuy-pagamentos:latest
     restart: always
     env_file:
       - .env
     environment:
       PORT: 5000
-
-    ports:
-      - "5001:5000"
-
-    labels:
-      - "traefik.enable=true"
-
-      - "traefik.http.routers.wbuy-temp.rule=PathPrefix(`/wbuy`)"
-      - "traefik.http.routers.wbuy-temp.entrypoints=web"
-      - "traefik.http.services.wbuy-temp.loadbalancer.server.port=5000"
-      - "traefik.docker.network=web"
-
+    volumes:
+      - ./storage:/app/storage
     networks:
       - web
       - internal
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=web"
+      - "traefik.http.routers.wbuy-pagamentos.rule=Host(`wbuypgto.crmvendedor.com.br`) && PathPrefix(`/wbuy`)"
+      - "traefik.http.routers.wbuy-pagamentos.entrypoints=websecure"
+      - "traefik.http.routers.wbuy-pagamentos.tls=true"
+      - "traefik.http.routers.wbuy-pagamentos.tls.certresolver=le"
+      - "traefik.http.routers.wbuy-pagamentos.service=wbuy-pagamentos"
+      - "traefik.http.services.wbuy-pagamentos.loadbalancer.server.port=5000"
+      - "traefik.http.routers.wbuy-pagamentos-http.rule=Host(`wbuypgto.crmvendedor.com.br`) && PathPrefix(`/wbuy`)"
+      - "traefik.http.routers.wbuy-pagamentos-http.entrypoints=web"
+      - "traefik.http.routers.wbuy-pagamentos-http.middlewares=wbuy-pagamentos-https-redirect"
+      - "traefik.http.middlewares.wbuy-pagamentos-https-redirect.redirectscheme.scheme=https"
 
 networks:
   web:
     external: true
-    name: web
-
   internal:
-    external: true
-    name: sarat_internal
+    internal: true
