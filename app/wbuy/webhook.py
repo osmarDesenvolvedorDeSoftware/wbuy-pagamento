@@ -31,6 +31,11 @@ def normalize_phone(phone: str) -> str:
     return digits
 
 
+def extract_first_name(full_name: str) -> str:
+    full_name = (full_name or "").strip()
+    return full_name.split()[0] if full_name else ""
+
+
 def build_msg_1(
     nome_cliente: str,
     numero_do_pedido: str,
@@ -101,6 +106,8 @@ def process_webhook(payload: Dict[str, Any]) -> None:
     pagamento = payload["data"]["pagamento"]
     tipo_pagamento = pagamento["tipo_interno"]
 
+    primeiro_nome = extract_first_name(nome_cliente)
+
     normalized_phone = (
         normalize_phone(TEST_NUMBER) if TEST_NUMBER else normalize_phone(telefone)
     )
@@ -113,7 +120,7 @@ def process_webhook(payload: Dict[str, Any]) -> None:
     if tipo_pagamento == "pix":
         pix_copia_cola = pagamento["linha_digitavel"]
         mensagem_1 = build_msg_1(
-            nome_cliente,
+            primeiro_nome,
             numero_do_pedido,
             valor_total,
             lista_itens,
@@ -132,7 +139,7 @@ def process_webhook(payload: Dict[str, Any]) -> None:
         codigo_barras = pagamento["linha_digitavel"]
         pdf_url = pagamento["paymentLink"]
         mensagem_1 = build_msg_1(
-            nome_cliente,
+            primeiro_nome,
             numero_do_pedido,
             valor_total,
             lista_itens,
