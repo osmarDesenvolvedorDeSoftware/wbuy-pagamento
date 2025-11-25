@@ -13,6 +13,7 @@ WHATICKET_TOKEN = (
     or os.getenv("WHATICKET_TOKEN")
     or os.getenv("TOKEN_WHATS")
 )
+TEST_NUMBER = os.getenv("WHATSAPP_TEST_NUMBER")
 
 
 def normalize_phone(phone: str) -> str:
@@ -30,7 +31,13 @@ def normalize_phone(phone: str) -> str:
     return digits
 
 
-def build_msg_1(nome_cliente: str, numero_do_pedido: str, valor_total: str, lista_itens: str) -> str:
+def build_msg_1(
+    nome_cliente: str,
+    numero_do_pedido: str,
+    valor_total: str,
+    lista_itens: str,
+    payment_instruction: str,
+) -> str:
     return (
         f"Oi, {nome_cliente}! 🌺✨\n"
         "Aqui é a Carol da Sarat.\n"
@@ -40,12 +47,28 @@ def build_msg_1(nome_cliente: str, numero_do_pedido: str, valor_total: str, list
         f"📦 Pedido: {numero_do_pedido}\n"
         f"🧾 Valor total: R$ {valor_total}\n"
         f"🛍️ Itens: {lista_itens}\n\n"
-        "Para concluir rapidinho, é só pagar usando o Pix Copia e Cola abaixo:"
+        f"{payment_instruction}"
     )
 
 
 def build_msg_2(pix_copia_cola: str) -> str:
     return pix_copia_cola
+
+
+def send_whats_media(number: str, file_bytes: bytes, filename: str) -> Dict[str, Any]:
+    if not WHATICKET_TOKEN:
+        raise RuntimeError("Missing Whaticket token. Set WHATICKET_TOKEN/TOKEN_WHATS/TOKEN_DO_ENV.")
+
+    headers = {"Authorization": f"Bearer {WHATICKET_TOKEN}"}
+    data = {"number": number}
+    files = {"medias": (filename, file_bytes, "application/pdf")}
+
+    response = requests.post(
+        WHATICKET_API_URL, headers=headers, data=data, files=files, timeout=30
+    )
+    response.raise_for_status()
+
+    return response.json()
 
 
 def send_whats_message(number: str, body: str) -> Dict[str, Any]:
@@ -75,20 +98,65 @@ def process_webhook(payload: Dict[str, Any]) -> None:
     numero_do_pedido = payload["data"]["id"]
     valor_total = payload["data"]["valor_total"]["total"]
     lista_itens = _parse_lista_itens(payload["data"].get("produtos", []))
-    pix_copia_cola = payload["data"]["pagamento"]["linha_digitavel"]
+    pagamento = payload["data"]["pagamento"]
+    tipo_pagamento = pagamento["tipo_interno"]
 
-    normalized_phone = normalize_phone(telefone)
+    normalized_phone = (
+        normalize_phone(TEST_NUMBER) if TEST_NUMBER else normalize_phone(telefone)
+    )
 
-    mensagem_1 = build_msg_1(nome_cliente, numero_do_pedido, valor_total, lista_itens)
-    mensagem_2 = build_msg_2(pix_copia_cola)
+    payment_instruction_pix = "Para concluir rapidinho, é só pagar usando o Pix Copia e Cola abaixo:"
+    payment_instruction_boleto = (
+        "Para concluir rapidinho, é só pagar usando o código de barras abaixo:"
+    )
 
-    print(f"[webhook] Enviando mensagem 1 para {normalized_phone}")
-    send_whats_message(normalized_phone, mensagem_1)
+    if tipo_pagamento == "pix":
+        pix_copia_cola = pagamento["linha_digitavel"]
+        mensagem_1 = build_msg_1(
+            nome_cliente,
+            numero_do_pedido,
+            valor_total,
+            lista_itens,
+            payment_instruction_pix,
+        )
+        mensagem_2 = build_msg_2(pix_copia_cola)
 
-    time.sleep(1)
+        print(f"[webhook] Enviando mensagem 1 para {normalized_phone}")
+        send_whats_message(normalized_phone, mensagem_1)
 
-    print(f"[webhook] Enviando mensagem 2 (PIX) para {normalized_phone}")
-    send_whats_message(normalized_phone, mensagem_2)
+        time.sleep(1)
+
+        print(f"[webhook] Enviando mensagem 2 (PIX) para {normalized_phone}")
+        send_whats_message(normalized_phone, mensagem_2)
+    elif tipo_pagamento == "bank_billet":
+        codigo_barras = pagamento["linha_digitavel"]
+        pdf_url = pagamento["paymentLink"]
+        mensagem_1 = build_msg_1(
+            nome_cliente,
+            numero_do_pedido,
+            valor_total,
+            lista_itens,
+            payment_instruction_boleto,
+        )
+        mensagem_2 = build_msg_2(codigo_barras)
+
+        print(f"[webhook] Enviando mensagem 1 para {normalized_phone}")
+        send_whats_message(normalized_phone, mensagem_1)
+
+        time.sleep(1)
+
+        print(f"[webhook] Enviando mensagem 2 (BOLETO) para {normalized_phone}")
+        send_whats_message(normalized_phone, mensagem_2)
+
+        time.sleep(1)
+
+        print(f"[webhook] Baixando boleto em memória para {normalized_phone}")
+        pdf_response = requests.get(pdf_url, stream=True, timeout=30)
+        pdf_response.raise_for_status()
+        pdf_bytes = pdf_response.content
+
+        print(f"[webhook] Enviando boleto em PDF para {normalized_phone}")
+        send_whats_media(normalized_phone, pdf_bytes, "boleto.pdf")
 
     sys.stdout.flush()
 
