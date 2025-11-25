@@ -79,6 +79,13 @@ def build_msg_2(pix_copia_cola: str) -> str:
     return pix_copia_cola
 
 
+def build_closing_message() -> str:
+    return (
+        "E se tiver qualquer dúvida ou dificuldade pode chamar a gente por aqui mesmo.\n"
+        "🙏🏻🙏🏻🙏🏻"
+    )
+
+
 def send_whats_media(number: str, file_bytes: bytes, filename: str) -> Dict[str, Any]:
     if not WHATICKET_TOKEN:
         raise RuntimeError("Missing Whaticket token. Set WHATICKET_TOKEN/TOKEN_WHATS/TOKEN_DO_ENV.")
@@ -147,6 +154,7 @@ def process_webhook(payload: Dict[str, Any]) -> None:
             payment_instruction_pix,
         )
         mensagem_2 = build_msg_2(pix_copia_cola)
+        mensagem_final = build_closing_message()
 
         print(f"[webhook] Enviando mensagem 1 para {normalized_phone}")
         send_whats_message(normalized_phone, mensagem_1)
@@ -155,6 +163,11 @@ def process_webhook(payload: Dict[str, Any]) -> None:
 
         print(f"[webhook] Enviando mensagem 2 (PIX) para {normalized_phone}")
         send_whats_message(normalized_phone, mensagem_2)
+
+        time.sleep(1)
+
+        print(f"[webhook] Enviando mensagem final (PIX) para {normalized_phone}")
+        send_whats_message(normalized_phone, mensagem_final)
     elif tipo_pagamento == "bank_billet":
         codigo_barras = pagamento["linha_digitavel"]
         pdf_url = pagamento["paymentLink"]
@@ -166,6 +179,7 @@ def process_webhook(payload: Dict[str, Any]) -> None:
             payment_instruction_boleto,
         )
         mensagem_2 = build_msg_2(codigo_barras)
+        mensagem_final = build_closing_message()
 
         print(f"[webhook] Enviando mensagem 1 para {normalized_phone}")
         send_whats_message(normalized_phone, mensagem_1)
@@ -184,6 +198,11 @@ def process_webhook(payload: Dict[str, Any]) -> None:
 
         print(f"[webhook] Enviando boleto em PDF para {normalized_phone}")
         send_whats_media(normalized_phone, pdf_bytes, "boleto.pdf")
+
+        time.sleep(1)
+
+        print(f"[webhook] Enviando mensagem final (BOLETO) para {normalized_phone}")
+        send_whats_message(normalized_phone, mensagem_final)
 
     sys.stdout.flush()
 
