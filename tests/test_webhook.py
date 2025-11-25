@@ -93,6 +93,15 @@ class TestWebhook(unittest.TestCase):
         pdf_response.raise_for_status = mock.Mock()
 
         with (
+            mock.patch.dict(
+                "os.environ",
+                {
+                    "WHATSAPP_TEST_NUMBER": "",
+                    "NUMBER_TEST": "",
+                    "NUMBER_TESTE": "",
+                },
+                clear=False,
+            ),
             mock.patch(
                 "app.wbuy.webhook.send_whats_message", side_effect=fake_send_message
             ) as send_mock,
@@ -158,9 +167,11 @@ class TestWebhook(unittest.TestCase):
             }
         }
 
-        with mock.patch.object(webhook, "TEST_NUMBER", "5511999888777"), mock.patch(
-            "app.wbuy.webhook.send_whats_message"
-        ) as send_mock, mock.patch("app.wbuy.webhook.time.sleep"):
+        with mock.patch.dict(
+            "os.environ", {"NUMBER_TEST": "5511999888777"}, clear=False
+        ), mock.patch("app.wbuy.webhook.send_whats_message") as send_mock, mock.patch(
+            "app.wbuy.webhook.time.sleep"
+        ):
             webhook.process_webhook(payload)
 
         send_mock.assert_any_call(mock.ANY, mock.ANY)
@@ -172,6 +183,21 @@ class TestWebhook(unittest.TestCase):
         self.assertEqual(webhook.normalize_phone("016996246673"), "5516996246673")
         self.assertEqual(webhook.normalize_phone("5516996246673"), "5516996246673")
         self.assertEqual(webhook.normalize_phone("16996246673"), "5516996246673")
+
+    def test_test_number_prefers_whatsapp_env_then_number_test(self):
+        with mock.patch.dict(
+            "os.environ",
+            {"NUMBER_TEST": "5511111111111", "WHATSAPP_TEST_NUMBER": "5522222222222"},
+            clear=False,
+        ):
+            self.assertEqual(webhook._get_test_number(), "5522222222222")
+
+        with mock.patch.dict(
+            "os.environ",
+            {"NUMBER_TEST": "5511111111111"},
+            clear=False,
+        ):
+            self.assertEqual(webhook._get_test_number(), "5511111111111")
 
 
 if __name__ == "__main__":
