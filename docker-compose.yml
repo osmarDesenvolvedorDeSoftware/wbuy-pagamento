@@ -4,33 +4,47 @@ services:
   wbuy-api:
     container_name: wbuy-api
     build: .
-    image: wbuy-api
+    image: wbuy-api:latest
     restart: always
+
     env_file:
       - .env
     environment:
       PORT: 5000
 
-    ports:
-      - "5001:5000"
-
-    labels:
-      - "traefik.enable=true"
-
-      - "traefik.http.routers.wbuy-temp.rule=PathPrefix(`/wbuy`)"
-      - "traefik.http.routers.wbuy-temp.entrypoints=web"
-      - "traefik.http.services.wbuy-temp.loadbalancer.server.port=5000"
-      - "traefik.docker.network=web"
+    volumes:
+      - ./storage:/app/storage
 
     networks:
       - web
       - internal
 
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=web"
+
+      #ROTA 1 — HTTPS principal
+      - "traefik.http.routers.wbuy-api.rule=Host(`wbuypgto.crmvendedor.com.br`) && PathPrefix(`/wbuy`)"
+      - "traefik.http.routers.wbuy-api.entrypoints=websecure"
+      - "traefik.http.routers.wbuy-api.tls=true"
+      - "traefik.http.routers.wbuy-api.tls.certresolver=le"
+      - "traefik.http.services.wbuy-api.loadbalancer.server.port=5000"
+
+      #ROTA 2 — HTTP → HTTPS
+      - "traefik.http.routers.wbuy-api-http.rule=Host(`wbuypgto.crmvendedor.com.br`) && PathPrefix(`/wbuy`)"
+      - "traefik.http.routers.wbuy-api-http.entrypoints=web"
+      - "traefik.http.routers.wbuy-api-http.middlewares=wbuy-api-redirect"
+      - "traefik.http.middlewares.wbuy-api-redirect.redirectscheme.scheme=https"
+
+      #ROTA 3 — EXCLUSIVA PARA EMITIR CERTIFICADO (ACME)
+      - "traefik.http.routers.wbuy-api-acme.rule=Host(`wbuypgto.crmvendedor.com.br`)"
+      - "traefik.http.routers.wbuy-api-acme.entrypoints=websecure"
+      - "traefik.http.routers.wbuy-api-acme.tls=true"
+      - "traefik.http.routers.wbuy-api-acme.tls.certresolver=le"
+
 networks:
   web:
     external: true
-    name: web
-
   internal:
-    external: true
     name: sarat_internal
+    external: true
