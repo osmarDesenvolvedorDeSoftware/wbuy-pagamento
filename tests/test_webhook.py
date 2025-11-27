@@ -78,6 +78,29 @@ class TestWebhook(unittest.TestCase):
         )
         sleep_mock.assert_has_calls([mock.call(1), mock.call(1)])
 
+    def test_process_webhook_escapes_pix_asterisks_before_sending(self):
+        payload = {
+            "data": {
+                "id": "77777",
+                "cliente": {"nome": "Cliente Pix", "telefone1": "(11)99999-0000"},
+                "valor_total": {"total": "50.0"},
+                "produtos": [],
+                "pagamento": {
+                    "linha_digitavel": "PIX***CODE",
+                    "tipo_interno": "pix",
+                },
+            }
+        }
+
+        with mock.patch("app.wbuy.webhook.send_whats_message") as send_mock, mock.patch(
+            "app.wbuy.webhook.time.sleep"
+        ):
+            webhook.process_webhook(payload)
+
+        expected_msg_2 = webhook.wrap_pix_payload(r"PIX\*\*\*CODE")
+
+        self.assertEqual(send_mock.call_args_list[1].args[1], expected_msg_2)
+
     def test_process_webhook_handles_boleto_flow_and_order(self):
         payload = {
             "data": {

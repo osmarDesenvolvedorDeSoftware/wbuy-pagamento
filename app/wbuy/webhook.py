@@ -202,6 +202,7 @@ def process_webhook(payload: Dict[str, Any]) -> None:
 
     if tipo_pagamento == "pix":
         pix_copia_cola = pagamento["linha_digitavel"]
+        pix_safe = pix_copia_cola.replace("***", r"\*\*\*")
         mensagem_1 = build_msg_1(
             primeiro_nome,
             numero_do_pedido,
@@ -209,7 +210,7 @@ def process_webhook(payload: Dict[str, Any]) -> None:
             lista_itens,
             payment_instruction_pix,
         )
-        mensagem_2 = wrap_pix_payload(pix_copia_cola)
+        mensagem_2 = wrap_pix_payload(pix_safe)
         mensagem_final = build_closing_message()
 
         print(f"[webhook] Enviando mensagem 1 para {normalized_phone}")
