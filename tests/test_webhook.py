@@ -65,7 +65,7 @@ class TestWebhook(unittest.TestCase):
             lista_itens,
             "Para concluir rapidinho, é só pagar usando o Pix Copia e Cola abaixo:",
         )
-        expected_msg_2 = webhook.build_msg_2("0002010102122677PIXCODE")
+        expected_msg_2 = webhook.wrap_pix_payload("0002010102122677PIXCODE")
         expected_msg_final = webhook.build_closing_message()
 
         self.assertEqual(
