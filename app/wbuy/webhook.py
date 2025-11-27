@@ -91,19 +91,35 @@ def build_closing_message() -> str:
 def send_whats_media(number: str, file_bytes: bytes, filename: str) -> Dict[str, Any]:
     normalized_number = (number or "").strip()
     if not normalized_number:
-        raise ValueError("Missing destination number for WhatsApp media message.")
+        print(
+            f"[whatsapp-media] Número ausente ou inválido para envio de mídia. Recebido: '{number}'"
+        )
+        return {"status": "skipped", "reason": "missing_number"}
 
     if not WHATICKET_TOKEN:
-        raise RuntimeError("Missing Whaticket token. Set WHATICKET_TOKEN/TOKEN_WHATS/TOKEN_DO_ENV.")
+        print("[whatsapp-media] Token do Whaticket ausente. Configure WHATICKET_TOKEN/TOKEN_WHATS/TOKEN_DO_ENV.")
+        return {"status": "error", "reason": "missing_token"}
 
     headers = {"Authorization": f"Bearer {WHATICKET_TOKEN}"}
     data = {"number": normalized_number}
     files = {"medias": (filename, file_bytes, "application/pdf")}
 
+    print(
+        f"[whatsapp-media] Payload construído para Whaticket: número={normalized_number}, arquivo={filename}"
+    )
+
     response = requests.post(
         WHATICKET_API_URL, headers=headers, data=data, files=files, timeout=30
     )
-    response.raise_for_status()
+    if not response.ok:
+        print(
+            f"[whatsapp-media] Erro ao enviar mídia. Status: {response.status_code}. Corpo: {response.text}"
+        )
+        return {
+            "status": "error",
+            "status_code": response.status_code,
+            "response": response.text,
+        }
 
     return response.json()
 
@@ -111,10 +127,14 @@ def send_whats_media(number: str, file_bytes: bytes, filename: str) -> Dict[str,
 def send_whats_message(number: str, body: str) -> Dict[str, Any]:
     normalized_number = (number or "").strip()
     if not normalized_number:
-        raise ValueError("Missing destination number for WhatsApp message.")
+        print(
+            f"[whatsapp] Número ausente ou inválido para envio de mensagem. Recebido: '{number}'"
+        )
+        return {"status": "skipped", "reason": "missing_number"}
 
     if not WHATICKET_TOKEN:
-        raise RuntimeError("Missing Whaticket token. Set WHATICKET_TOKEN/TOKEN_WHATS/TOKEN_DO_ENV.")
+        print("[whatsapp] Token do Whaticket ausente. Configure WHATICKET_TOKEN/TOKEN_WHATS/TOKEN_DO_ENV.")
+        return {"status": "error", "reason": "missing_token"}
 
     headers = {
         "Authorization": f"Bearer {WHATICKET_TOKEN}",
@@ -123,8 +143,18 @@ def send_whats_message(number: str, body: str) -> Dict[str, Any]:
 
     payload = {"number": normalized_number, "body": body}
 
+    print(f"[whatsapp] Payload construído para Whaticket: {payload}")
+
     response = requests.post(WHATICKET_API_URL, headers=headers, json=payload, timeout=30)
-    response.raise_for_status()
+    if not response.ok:
+        print(
+            f"[whatsapp] Erro ao enviar mensagem. Status: {response.status_code}. Corpo: {response.text}"
+        )
+        return {
+            "status": "error",
+            "status_code": response.status_code,
+            "response": response.text,
+        }
 
     return response.json()
 
@@ -146,7 +176,7 @@ def process_webhook(payload: Dict[str, Any]) -> None:
 
     if storage.is_order_processed(numero_do_pedido):
         print(f"[webhook] Pedido {numero_do_pedido} já processado. Ignorando envio duplicado.")
-        return
+        return {"status": "skipped", "reason": "already_processed"}
 
     primeiro_nome = extract_first_name(nome_cliente)
 
@@ -157,7 +187,7 @@ def process_webhook(payload: Dict[str, Any]) -> None:
         print(
             f"[webhook] Número de telefone ausente ou inválido para o pedido {numero_do_pedido}. Ignorando envio."
         )
-        return
+        return {"status": "skipped", "reason": "missing_phone"}
 
     payment_instruction_pix = "Para concluir rapidinho, é só pagar usando o Pix Copia e Cola abaixo:"
     payment_instruction_boleto = (
@@ -213,7 +243,15 @@ def process_webhook(payload: Dict[str, Any]) -> None:
 
         print(f"[webhook] Baixando boleto em memória para {normalized_phone}")
         pdf_response = requests.get(pdf_url, stream=True, timeout=30)
-        pdf_response.raise_for_status()
+        if not pdf_response.ok:
+            print(
+                f"[webhook] Erro ao baixar boleto. Status: {pdf_response.status_code}. Corpo: {pdf_response.text}"
+            )
+            return {
+                "status": "error",
+                "reason": "boleto_download_failed",
+                "status_code": pdf_response.status_code,
+            }
         pdf_bytes = pdf_response.content
 
         print(f"[webhook] Enviando boleto em PDF para {normalized_phone}")
