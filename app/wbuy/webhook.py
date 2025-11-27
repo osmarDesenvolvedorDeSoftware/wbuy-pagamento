@@ -81,6 +81,12 @@ def build_msg_2(pix_copia_cola: str) -> str:
     return pix_copia_cola
 
 
+def wrap_pix_payload(pix_payload: str) -> str:
+    """Return the PIX payload wrapped in a code block to avoid Markdown parsing."""
+
+    return f"```\n{pix_payload}\n```"
+
+
 def build_closing_message() -> str:
     return (
         "E se tiver qualquer dúvida ou dificuldade pode chamar a gente por aqui mesmo.\n"
@@ -203,7 +209,7 @@ def process_webhook(payload: Dict[str, Any]) -> None:
             lista_itens,
             payment_instruction_pix,
         )
-        mensagem_2 = build_msg_2(pix_copia_cola)
+        mensagem_2 = wrap_pix_payload(pix_copia_cola)
         mensagem_final = build_closing_message()
 
         print(f"[webhook] Enviando mensagem 1 para {normalized_phone}")
