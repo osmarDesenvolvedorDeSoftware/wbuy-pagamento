@@ -107,7 +107,9 @@ class TestWebhook(unittest.TestCase):
 
         pdf_response = mock.Mock()
         pdf_response.content = b"%PDF-1.4"
-        pdf_response.raise_for_status = mock.Mock()
+        pdf_response.ok = True
+        pdf_response.status_code = 200
+        pdf_response.text = "ok"
 
         with (
             mock.patch.dict(
@@ -196,7 +198,9 @@ class TestWebhook(unittest.TestCase):
         ) as post_mock:
             response_mock = mock.Mock()
             response_mock.json.return_value = {"ok": True}
-            response_mock.raise_for_status = mock.Mock()
+            response_mock.ok = True
+            response_mock.status_code = 200
+            response_mock.text = "ok"
             post_mock.return_value = response_mock
 
             response = webhook.send_whats_media("5511999999999", file_bytes, "boleto.pdf")
@@ -274,20 +278,21 @@ class TestWebhook(unittest.TestCase):
             mock.patch("app.wbuy.webhook.send_whats_message") as send_mock,
             mock.patch("app.wbuy.webhook.time.sleep"),
         ):
-            webhook.process_webhook(payload)
+            result = webhook.process_webhook(payload)
 
         send_mock.assert_not_called()
         self.assertFalse(self.processed_file.exists())
+        self.assertEqual(result, {"status": "skipped", "reason": "missing_phone"})
 
     def test_send_whats_message_rejects_missing_number(self):
         with (
             mock.patch.object(webhook, "WHATICKET_TOKEN", "TOKEN"),
             mock.patch("app.wbuy.webhook.requests.post") as post_mock,
         ):
-            with self.assertRaises(ValueError):
-                webhook.send_whats_message("", "body")
+            response = webhook.send_whats_message("", "body")
 
         post_mock.assert_not_called()
+        self.assertEqual(response, {"status": "skipped", "reason": "missing_number"})
 
 
 if __name__ == "__main__":
