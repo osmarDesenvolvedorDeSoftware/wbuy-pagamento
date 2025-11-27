@@ -84,7 +84,9 @@ def build_msg_2(pix_copia_cola: str) -> str:
 def wrap_pix_payload(pix_payload: str) -> str:
     """Return the PIX payload wrapped in a code block to avoid Markdown parsing."""
 
-    return f"```\n{pix_payload}\n```"
+    zwsp = "\u200B"
+    safe_payload = pix_payload.replace("***", f"*{zwsp}*{zwsp}*")
+    return f"```\n{safe_payload}\n```"
 
 
 def build_closing_message() -> str:
