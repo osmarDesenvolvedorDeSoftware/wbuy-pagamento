@@ -89,11 +89,15 @@ def build_closing_message() -> str:
 
 
 def send_whats_media(number: str, file_bytes: bytes, filename: str) -> Dict[str, Any]:
+    normalized_number = (number or "").strip()
+    if not normalized_number:
+        raise ValueError("Missing destination number for WhatsApp media message.")
+
     if not WHATICKET_TOKEN:
         raise RuntimeError("Missing Whaticket token. Set WHATICKET_TOKEN/TOKEN_WHATS/TOKEN_DO_ENV.")
 
     headers = {"Authorization": f"Bearer {WHATICKET_TOKEN}"}
-    data = {"number": number}
+    data = {"number": normalized_number}
     files = {"medias": (filename, file_bytes, "application/pdf")}
 
     response = requests.post(
@@ -105,6 +109,10 @@ def send_whats_media(number: str, file_bytes: bytes, filename: str) -> Dict[str,
 
 
 def send_whats_message(number: str, body: str) -> Dict[str, Any]:
+    normalized_number = (number or "").strip()
+    if not normalized_number:
+        raise ValueError("Missing destination number for WhatsApp message.")
+
     if not WHATICKET_TOKEN:
         raise RuntimeError("Missing Whaticket token. Set WHATICKET_TOKEN/TOKEN_WHATS/TOKEN_DO_ENV.")
 
@@ -113,7 +121,7 @@ def send_whats_message(number: str, body: str) -> Dict[str, Any]:
         "Content-Type": "application/json",
     }
 
-    payload = {"number": number, "body": body}
+    payload = {"number": normalized_number, "body": body}
 
     response = requests.post(WHATICKET_API_URL, headers=headers, json=payload, timeout=30)
     response.raise_for_status()
@@ -129,7 +137,7 @@ def _parse_lista_itens(produtos: List[Dict[str, Any]]) -> str:
 
 def process_webhook(payload: Dict[str, Any]) -> None:
     nome_cliente = payload["data"]["cliente"]["nome"]
-    telefone = payload["data"]["cliente"]["telefone1"]
+    telefone = payload["data"]["cliente"].get("telefone1", "")
     numero_do_pedido = str(payload["data"]["id"])
     valor_total = payload["data"]["valor_total"]["total"]
     lista_itens = _parse_lista_itens(payload["data"].get("produtos", []))
@@ -144,6 +152,12 @@ def process_webhook(payload: Dict[str, Any]) -> None:
 
     test_number = _get_test_number()
     normalized_phone = normalize_phone(test_number or telefone)
+
+    if not normalized_phone:
+        print(
+            f"[webhook] Número de telefone ausente ou inválido para o pedido {numero_do_pedido}. Ignorando envio."
+        )
+        return
 
     payment_instruction_pix = "Para concluir rapidinho, é só pagar usando o Pix Copia e Cola abaixo:"
     payment_instruction_boleto = (

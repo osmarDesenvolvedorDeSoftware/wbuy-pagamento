@@ -254,6 +254,41 @@ class TestWebhook(unittest.TestCase):
         ):
             self.assertEqual(webhook._get_test_number(), "5511111111111")
 
+    def test_process_webhook_skips_when_phone_missing(self):
+        payload = {
+            "data": {
+                "id": "999999",
+                "cliente": {"nome": "Sem Telefone", "telefone1": ""},
+                "valor_total": {"total": "10.0"},
+                "produtos": [],
+                "pagamento": {"linha_digitavel": "PIXCODE", "tipo_interno": "pix"},
+            }
+        }
+
+        with (
+            mock.patch.dict(
+                "os.environ",
+                {"WHATSAPP_TEST_NUMBER": "", "NUMBER_TEST": "", "NUMBER_TESTE": ""},
+                clear=False,
+            ),
+            mock.patch("app.wbuy.webhook.send_whats_message") as send_mock,
+            mock.patch("app.wbuy.webhook.time.sleep"),
+        ):
+            webhook.process_webhook(payload)
+
+        send_mock.assert_not_called()
+        self.assertFalse(self.processed_file.exists())
+
+    def test_send_whats_message_rejects_missing_number(self):
+        with (
+            mock.patch.object(webhook, "WHATICKET_TOKEN", "TOKEN"),
+            mock.patch("app.wbuy.webhook.requests.post") as post_mock,
+        ):
+            with self.assertRaises(ValueError):
+                webhook.send_whats_message("", "body")
+
+        post_mock.assert_not_called()
+
 
 if __name__ == "__main__":
     unittest.main()
